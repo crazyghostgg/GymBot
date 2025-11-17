@@ -1026,25 +1026,64 @@ bot.on("callback_query", async (ctx, next) => {
   }
 
   // --- Очистити історію ---
-  if (data === "adm:clear") {
-    const u = getUser(ctx.from.id);
-    if (!u || !isAdmin(u.user_id)) {
-      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
+  // --- Очистити історію (Запит підтвердження) ---
+    if (data === "adm:clear") {
+      const u = getUser(ctx.from.id);
+      if (!u || !isAdmin(u.user_id)) {
+        await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
+        return;
+      }
+
+      // Запитуємо підтвердження
+      const kb = Markup.inlineKeyboard([
+        [Markup.button.callback("Так, очистити", "adm:clear:confirm")],
+        [Markup.button.callback("Ні, скасувати", "adm:clear:cancel")],
+      ]);
+
+      await sendOrEdit(
+        ctx,
+        "⚠️ **Ви впевнені?**\n\nВи збираєтесь *повністю* очистити всю історію сесій та відвідувань.\n\nЦя дія незворотня.",
+        {
+          parse_mode: "Markdown",
+          reply_markup: kb.reply_markup,
+        }
+      );
+      await ctx.answerCbQuery().catch(() => {}); // Просто закрити спінер
       return;
     }
-    try {
-      const clearTx = db.transaction(() => {
-        db.prepare(`DELETE FROM visits`).run();
-        db.prepare(`DELETE FROM captain_changes`).run();
-        db.prepare(`DELETE FROM sessions`).run();
-      });
-      clearTx();
-      await sendOrEdit(ctx, "Історію зала очищено (користувачі збережені).");
-    } catch (e) {
-      await ctx.answerCbQuery(`Помилка: ${e.message}`, { show_alert: true });
+
+    // --- Очистити історію (Підтверджено) ---
+    if (data === "adm:clear:confirm") {
+      const u = getUser(ctx.from.id);
+      if (!u || !isAdmin(u.user_id)) {
+        await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
+        return;
+      }
+      try {
+        const clearTx = db.transaction(() => {
+          db.prepare(`DELETE FROM visits`).run();
+          db.prepare(`DELETE FROM captain_changes`).run();
+          db.prepare(`DELETE FROM sessions`).run();
+        });
+        clearTx();
+        await sendOrEdit(ctx, "✅ Історію зала очищено (користувачі збережені).");
+      } catch (e) {
+        await ctx.answerCbQuery(`Помилка: ${e.message}`, { show_alert: true });
+      }
+      return;
     }
-    return;
-  }
+
+    // --- Очистити історію (Скасовано) ---
+    if (data === "adm:clear:cancel") {
+      const u = getUser(ctx.from.id);
+      if (!u || !isAdmin(u.user_id)) {
+        await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
+        return;
+      }
+      await sendOrEdit(ctx, "Дію скасовано. Історія не була очищена.");
+      await ctx.answerCbQuery().catch(() => {});
+      return;
+    }
 
   // --- Історія за дату (пагінація) ---
   if (data.startsWith("hist:")) {
@@ -2253,3 +2292,4 @@ bot
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
+
