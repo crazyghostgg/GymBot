@@ -806,7 +806,7 @@ bot.on("callback_query", async (ctx, next) => {
       [Markup.button.callback("❌ Скасувати заявку", `cancel_payment:${ref}`)],
     ]);
 
-    // ... после формирования messageHtml и kb
+    // ... after forming messageHtml and kb
     await sendOrEdit(ctx, messageHtml, {
       parse_mode: "HTML",
       disable_web_page_preview: true,
@@ -1025,65 +1025,64 @@ bot.on("callback_query", async (ctx, next) => {
     return;
   }
 
-  // --- Очистити історію ---
   // --- Очистити історію (Запит підтвердження) ---
-    if (data === "adm:clear") {
-      const u = getUser(ctx.from.id);
-      if (!u || !isAdmin(u.user_id)) {
-        await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
-        return;
-      }
-
-      // Запитуємо підтвердження
-      const kb = Markup.inlineKeyboard([
-        [Markup.button.callback("Так, очистити", "adm:clear:confirm")],
-        [Markup.button.callback("Ні, скасувати", "adm:clear:cancel")],
-      ]);
-
-      await sendOrEdit(
-        ctx,
-        "⚠️ **Ви впевнені?**\n\nВи збираєтесь *повністю* очистити всю історію сесій та відвідувань.\n\nЦя дія незворотня.",
-        {
-          parse_mode: "Markdown",
-          reply_markup: kb.reply_markup,
-        }
-      );
-      await ctx.answerCbQuery().catch(() => {}); // Просто закрити спінер
+  if (data === "adm:clear") {
+    const u = getUser(ctx.from.id);
+    if (!u || !isAdmin(u.user_id)) {
+      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
       return;
     }
 
-    // --- Очистити історію (Підтверджено) ---
-    if (data === "adm:clear:confirm") {
-      const u = getUser(ctx.from.id);
-      if (!u || !isAdmin(u.user_id)) {
-        await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
-        return;
-      }
-      try {
-        const clearTx = db.transaction(() => {
-          db.prepare(`DELETE FROM visits`).run();
-          db.prepare(`DELETE FROM captain_changes`).run();
-          db.prepare(`DELETE FROM sessions`).run();
-        });
-        clearTx();
-        await sendOrEdit(ctx, "✅ Історію зала очищено (користувачі збережені).");
-      } catch (e) {
-        await ctx.answerCbQuery(`Помилка: ${e.message}`, { show_alert: true });
-      }
-      return;
-    }
+    // Запитуємо підтвердження
+    const kb = Markup.inlineKeyboard([
+      [Markup.button.callback("Так, очистити", "adm:clear:confirm")],
+      [Markup.button.callback("Ні, скасувати", "adm:clear:cancel")],
+    ]);
 
-    // --- Очистити історію (Скасовано) ---
-    if (data === "adm:clear:cancel") {
-      const u = getUser(ctx.from.id);
-      if (!u || !isAdmin(u.user_id)) {
-        await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
-        return;
+    await sendOrEdit(
+      ctx,
+      "⚠️ **Ви впевнені?**\n\nВи збираєтесь *повністю* очистити всю історію сесій та відвідувань.\n\nЦя дія незворотня.",
+      {
+        parse_mode: "Markdown",
+        reply_markup: kb.reply_markup,
       }
-      await sendOrEdit(ctx, "Дію скасовано. Історія не була очищена.");
-      await ctx.answerCbQuery().catch(() => {});
+    );
+    await ctx.answerCbQuery().catch(() => {}); // Просто закрити спінер
+    return;
+  }
+
+  // --- Очистити історію (Підтверджено) ---
+  if (data === "adm:clear:confirm") {
+    const u = getUser(ctx.from.id);
+    if (!u || !isAdmin(u.user_id)) {
+      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
       return;
     }
+    try {
+      const clearTx = db.transaction(() => {
+        db.prepare(`DELETE FROM visits`).run();
+        db.prepare(`DELETE FROM captain_changes`).run();
+        db.prepare(`DELETE FROM sessions`).run();
+      });
+      clearTx();
+      await sendOrEdit(ctx, "✅ Історію зала очищено (користувачі збережені).");
+    } catch (e) {
+      await ctx.answerCbQuery(`Помилка: ${e.message}`, { show_alert: true });
+    }
+    return;
+  }
+
+  // --- Очистити історію (Скасовано) ---
+  if (data === "adm:clear:cancel") {
+    const u = getUser(ctx.from.id);
+    if (!u || !isAdmin(u.user_id)) {
+      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
+      return;
+    }
+    await sendOrEdit(ctx, "Дію скасовано. Історія не була очищена.");
+    await ctx.answerCbQuery().catch(() => {});
+    return;
+  }
 
   // --- Історія за дату (пагінація) ---
   if (data.startsWith("hist:")) {
@@ -1216,81 +1215,85 @@ function notifySupers(text) {
 }
 
 // Стан очікування тексту для відхилення з причиною / ручної видачі / блокування
-const saRejectState = new Map(); // admin_id -> payment_id
+const saRejectState = new Map(); // admin_id -> { pid, page }
 const saGrantState = new Map(); // admin_id -> { stage: 'askUser'|'choosePlan'|'done', targetId? }
 const saBlockState = new Map(); // admin_id -> asking user id
+
+/* ===== Рендеринг черги оплат (для адмінів) ===== */
+async function renderPaymentQueue(ctx, page = 1) {
+  const admin = getUser(ctx.from.id);
+  if (!admin || !isAdmin(admin.user_id) || !isSuperAdmin(admin.user_id)) {
+    await ctx.answerCbQuery("Лише для суперадміністраторів.", {
+      show_alert: true,
+    });
+    return;
+  }
+
+  const items = db
+    .prepare(
+      `SELECT * FROM payments
+       WHERE status IN ('review','pending')
+       ORDER BY CASE status WHEN 'review' THEN 0 ELSE 1 END, created_at ASC`
+    )
+    .all();
+
+  if (!items.length) {
+    await sendOrEdit(ctx, "Черга порожня.");
+    return;
+  }
+
+  const total = items.length;
+  // Важливо: перераховуємо 'current' на випадок, якщо сторінка стала недоступною
+  const current = Math.min(Math.max(1, page), total);
+  const p = items[current - 1];
+
+  const u = getUser(p.user_id);
+
+  const months = p.months || 1;
+  const disc = p.discount_percent || 0;
+  const amountDisplay =
+    p.amount_uah != null
+      ? `${p.amount_uah} грн`
+      : `${Math.round(p.amount / 100)} грн`;
+
+  const text =
+    `Заявка ${current}/${total}\n` +
+    `Користувач: ${u?.name || p.user_id} (id:${p.user_id})\n` +
+    `План: ${planName(p.plan)}\n${planDescription(p.plan)}\n` +
+    `Тривалість: ${months} міс.${disc ? ` (знижка ${disc}%)` : ""}\n` +
+    `Сума: ${amountDisplay}\n` +
+    `Статус: ${p.status}\n` +
+    `ref: ${p.ref_code}\n` +
+    `Створено: ${toLocal(p.created_at)}`;
+
+  const row1 = [];
+  // Логіка кнопок пагінації (перехід на `current`, а не `page`)
+  row1.push(
+    Markup.button.callback("« Назад", `sa:q:${Math.max(1, current - 1)}`)
+  );
+  row1.push(
+    Markup.button.callback("Вперед »", `sa:q:${Math.min(total, current + 1)}`)
+  );
+
+  const row2 = [];
+  row2.push(Markup.button.callback("Показати чек", `sa:proof:${p.id}`));
+  // Передаємо 'current' сторінку, щоб знати, куди повернутись
+  row2.push(
+    Markup.button.callback("Підтвердити", `sa:appr:${p.id}:${current}`)
+  );
+  row2.push(Markup.button.callback("Відхилити", `sa:rej:${p.id}:${current}`));
+
+  await sendOrEdit(ctx, text, Markup.inlineKeyboard([row1, row2]));
+  await ctx.answerCbQuery().catch(() => {});
+}
 
 bot.on("callback_query", async (ctx, next) => {
   const data = ctx.callbackQuery.data || "";
 
   // --- Черга оплат (список) ---
   if (data.startsWith("sa:q:")) {
-    const admin = getUser(ctx.from.id);
-    if (!admin || !isAdmin(admin.user_id)) {
-      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
-      return;
-    }
-    if (!isSuperAdmin(admin.user_id)) {
-      await ctx.answerCbQuery("Лише для суперадміністраторів.", {
-        show_alert: true,
-      });
-      return;
-    }
-
     const page = Math.max(1, parseInt(data.split(":")[2] || "1", 10));
-    // спершу review, потім pending
-    const items = db
-      .prepare(
-        `SELECT * FROM payments
-         WHERE status IN ('review','pending')
-         ORDER BY CASE status WHEN 'review' THEN 0 ELSE 1 END, created_at ASC`
-      )
-      .all();
-
-    if (!items.length) {
-      await sendOrEdit(ctx, "Черга порожня.");
-      return;
-    }
-
-    const total = items.length;
-    const current = Math.min(page, total);
-    const p = items[current - 1];
-
-    const u = getUser(p.user_id);
-
-    const months = p.months || 1;
-    const disc = p.discount_percent || 0;
-    const amountDisplay =
-      p.amount_uah != null
-        ? `${p.amount_uah} грн`
-        : `${Math.round(p.amount / 100)} грн`;
-
-    const text =
-      `Заявка ${current}/${total}\n` +
-      `Користувач: ${u?.name || p.user_id} (id:${p.user_id})\n` +
-      `План: ${planName(p.plan)}\n${planDescription(p.plan)}\n` +
-      `Тривалість: ${months} міс.${disc ? ` (знижка ${disc}%)` : ""}\n` +
-      `Сума: ${amountDisplay}\n` +
-      `Статус: ${p.status}\n` +
-      `ref: ${p.ref_code}\n` +
-      `Створено: ${toLocal(p.created_at)}`;
-
-    const row1 = [];
-    row1.push(
-      Markup.button.callback("« Назад", `sa:q:${Math.max(1, current - 1)}`)
-    );
-    row1.push(
-      Markup.button.callback("Вперед »", `sa:q:${Math.min(total, current + 1)}`)
-    );
-
-    const row2 = [];
-    row2.push(Markup.button.callback("Показати чек", `sa:proof:${p.id}`));
-    row2.push(Markup.button.callback("Підтвердити", `sa:appr:${p.id}`));
-    row2.push(Markup.button.callback("Відхилити", `sa:rej:${p.id}`));
-
-    await sendOrEdit(ctx, text, Markup.inlineKeyboard([row1, row2]));
-    await ctx.answerCbQuery().catch(() => {});
-    return;
+    return renderPaymentQueue(ctx, page);
   }
 
   // --- Показати чек ---
@@ -1331,45 +1334,39 @@ bot.on("callback_query", async (ctx, next) => {
 
   // --- Підтвердити оплату ---
   if (data.startsWith("sa:appr:")) {
-    const pid = Number(data.split(":")[2]);
+    // Формат: sa:appr:<pid>:<page>
+    const parts = data.split(":");
+    const pid = Number(parts[2]);
+    const returnPage = Math.max(1, parseInt(parts[3] || "1", 10));
+
     const p = db.prepare(`SELECT * FROM payments WHERE id=?`).get(pid);
 
     if (!p) {
       await ctx.answerCbQuery("Заявку не знайдено.");
-      return;
+      return renderPaymentQueue(ctx, returnPage); // Оновити, навіть якщо помилка
     }
     if (!["pending", "review"].includes(p.status)) {
       await ctx.answerCbQuery("Непридатна заявка.");
-      return;
+      return renderPaymentQueue(ctx, returnPage); // Оновити, бо її вже обробили
     }
 
     const months = Math.max(1, p.months || 1);
-
-    // останній період користувача
     const last = getLastSubscription(p.user_id);
     const lastEndMs = last
       ? Date.parse(last.end_at.replace(" ", "T") + "Z")
       : 0;
-
-    // новий період: або зразу, або з кінця попереднього
     const startDate = new Date(Math.max(Date.now(), lastEndMs + 1000));
     const endDate = new Date(startDate.getTime());
     endDate.setMonth(endDate.getMonth() + months);
-
     const startSql = sqlFromDate(startDate);
     const endSql = sqlFromDate(endDate);
     const adminId = ctx.from.id;
 
     const tx = db.transaction(() => {
-      // 1) оновлюємо статус платежу
       db.prepare(
         `UPDATE payments SET status='approved', approved_at=datetime('now') WHERE id=?`
       ).run(pid);
-
-      // 2) додаємо підписку-період (ЄДИНИЙ джерело істини)
       addSubscription(p.user_id, p.plan, startSql, endSql);
-
-      // 3) лог дії
       db.prepare(
         `INSERT INTO admin_actions (actor_id, action, target_user_id, payment_id, details)
      VALUES (?,?,?,?,?)`
@@ -1389,7 +1386,7 @@ bot.on("callback_query", async (ctx, next) => {
       await ctx.answerCbQuery("Помилка під час підтвердження.", {
         show_alert: true,
       });
-      return;
+      return; // Тут не оновлюємо, щоб адмін побачив помилку
     }
 
     await ctx.answerCbQuery("Підтверджено.");
@@ -1404,33 +1401,35 @@ bot.on("callback_query", async (ctx, next) => {
           )}`
       );
     } catch {}
-    return;
+
+    // Повертаємо адміна до черги
+    return renderPaymentQueue(ctx, returnPage);
   }
 
   // --- Відхилити оплату (запрос причини) ---
   if (data.startsWith("sa:rej:")) {
     const admin = getUser(ctx.from.id);
-    if (!admin || !isAdmin(admin.user_id)) {
-      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
-      return;
-    }
-    if (!isSuperAdmin(admin.user_id)) {
+    if (!admin || !isAdmin(admin.user_id) || !isSuperAdmin(admin.user_id)) {
       await ctx.answerCbQuery("Лише для суперадміністраторів.", {
         show_alert: true,
       });
       return;
     }
 
-    // коректний парсинг id
-    const parts = data.split(":"); // ["sa","rej","<id>"]
+    // Формат: sa:rej:<pid>:<page>
+    const parts = data.split(":");
     const pid = Number(parts[2]);
+    const returnPage = Math.max(1, parseInt(parts[3] || "1", 10));
 
     const p = db.prepare(`SELECT * FROM payments WHERE id=?`).get(pid);
     if (!p || !["pending", "review"].includes(p.status)) {
       await ctx.answerCbQuery("Непридатна заявка.", { show_alert: true });
-      return;
+      return renderPaymentQueue(ctx, returnPage); // Оновити чергу
     }
-    saRejectState.set(admin.user_id, pid);
+
+    // Зберігаємо і pid, і сторінку, куди повернутись
+    saRejectState.set(admin.user_id, { pid: pid, page: returnPage });
+
     await ctx.answerCbQuery().catch(() => {});
     await ctx.reply(
       "Введіть причину відхилення як наступне повідомлення (текстом)."
@@ -1786,12 +1785,15 @@ bot.on("text", async (ctx, next) => {
 
   // причина відхилення
   if (saRejectState.has(adminId)) {
-    const pid = saRejectState.get(adminId);
-    saRejectState.delete(adminId);
+    const state = saRejectState.get(adminId);
+    const pid = state.pid;
+    const returnPage = state.page;
+    saRejectState.delete(adminId); // Очищуємо стан
 
     const p = db.prepare(`SELECT * FROM payments WHERE id=?`).get(pid);
     if (!p || !["pending", "review"].includes(p.status)) {
-      return ctx.reply("Заявку не знайдено або її вже оброблено.");
+      await ctx.reply("Заявку не знайдено або її вже оброблено.");
+      return renderPaymentQueue(ctx, returnPage); // Все одно оновлюємо
     }
 
     const reason = (ctx.message.text || "Без коментаря").slice(0, 500);
@@ -1815,7 +1817,10 @@ bot.on("text", async (ctx, next) => {
       );
     } catch {}
 
-    return ctx.reply("Відхилено. Користувача повідомлено.");
+    await ctx.reply("Відхилено. Користувача повідомлено.");
+
+    // Повертаємо адміна до черги
+    return renderPaymentQueue(ctx, returnPage);
   }
 
   // ручне надання/продовження (ввід user_id)
@@ -2292,4 +2297,3 @@ bot
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
-
