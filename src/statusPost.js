@@ -11,7 +11,7 @@ const toLocal = (s) =>
     ? formatInTimeZone(
         new Date(s.replace(" ", "T") + "Z"),
         TZ,
-        "yyyy-MM-dd HH:mm"
+        "yyyy-MM-dd HH:mm",
       )
     : "—";
 
@@ -55,13 +55,13 @@ async function sendOrEdit(bot, chatId, messageId, text) {
         messageId,
         undefined,
         text,
-        common
+        common,
       );
       return { chatId, messageId, edited: true };
     } catch (e) {
       console.warn(
         "editMessageText failed, will send new:",
-        e?.description || e
+        e?.description || e,
       );
       // впадемо в надсилання нового
     }
@@ -90,7 +90,7 @@ export async function updateStatusPost(bot, groupChatId) {
             JOIN users u ON u.user_id = v.user_id
             WHERE v.session_id = ? AND v.exited_at IS NULL
             ORDER BY u.name
-          `
+          `,
           )
           .all(s.id)
       : [];
@@ -114,12 +114,12 @@ export async function updateStatusPost(bot, groupChatId) {
         bot,
         groupChatId,
         s.status_message_id ? s.status_message_id : null,
-        text
+        text,
       );
       // Збережемо message_id (на випадок, якщо створили новий)
       if (!res.edited && res.messageId) {
         db.prepare(
-          `UPDATE sessions SET status_chat_id = ?, status_message_id = ? WHERE id = ?`
+          `UPDATE sessions SET status_chat_id = ?, status_message_id = ? WHERE id = ?`,
         ).run(res.chatId, res.messageId, s.id);
       }
       return;
@@ -131,7 +131,7 @@ export async function updateStatusPost(bot, groupChatId) {
         `SELECT status_chat_id, status_message_id
          FROM sessions
          WHERE status_chat_id IS NOT NULL AND status_message_id IS NOT NULL
-         ORDER BY id DESC LIMIT 1`
+         ORDER BY id DESC LIMIT 1`,
       )
       .get();
 

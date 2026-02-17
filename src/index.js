@@ -36,14 +36,14 @@ const WATCHER_ALLOW = new Set(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map(Number)
+    .map(Number),
 );
 
 // ✅ Таблица для динамичных вахтёров (если ещё не создана)
 db.prepare(
   `CREATE TABLE IF NOT EXISTS watchers (
      user_id INTEGER PRIMARY KEY
-   )`
+   )`,
 ).run();
 
 // ✅ Функции работы с вахтёрами (+ белый список)
@@ -54,7 +54,7 @@ function setWatcher(userId, on) {
   if (!WATCHER_ALLOW.has(Number(userId))) return false;
   if (on) {
     db.prepare(`INSERT OR IGNORE INTO watchers (user_id) VALUES (?)`).run(
-      userId
+      userId,
     );
   } else {
     db.prepare(`DELETE FROM watchers WHERE user_id=?`).run(userId);
@@ -78,7 +78,7 @@ async function notifyWatchers(text, extra = {}) {
       })
       .catch((err) => {
         console.error("notifyWatchers error -> id:", id, err?.message || err);
-      })
+      }),
   );
   await Promise.allSettled(tasks);
 }
@@ -141,7 +141,7 @@ const ADMINS = new Set(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((v) => Number(v))
+    .map((v) => Number(v)),
 );
 
 const SUPER_ADMINS = new Set(
@@ -149,7 +149,7 @@ const SUPER_ADMINS = new Set(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((v) => Number(v))
+    .map((v) => Number(v)),
 );
 // HTML-екранування (працює на будь-якій версії Node)
 const esc = (s) =>
@@ -187,7 +187,7 @@ async function showTermsGate(ctx) {
     [
       Markup.button.callback(
         "✅ Прочитав та погоджуюсь",
-        `accept_terms:${CURRENT_TERMS_VERSION}`
+        `accept_terms:${CURRENT_TERMS_VERSION}`,
       ),
     ],
   ]);
@@ -207,7 +207,7 @@ bot.action(/copy_ref:(.+)/, async (ctx) => {
 bot.action("copy_details", async (ctx) => {
   await ctx.answerCbQuery("Відправляю реквізити…");
   return ctx.replyWithHTML(
-    `<b>Реквізити</b>\n<pre><code>${esc(PAYMENT_DETAILS)}</code></pre>`
+    `<b>Реквізити</b>\n<pre><code>${esc(PAYMENT_DETAILS)}</code></pre>`,
   );
 });
 
@@ -219,7 +219,7 @@ bot.action("how_receipt", async (ctx) => {
       "• Фото: чітко видно суму, дату, призначення <u>з референсом</u>.",
       "• PDF: оригінал з банку.",
       "Після надсилання статус: <code>review</code>. Адміністратор перевіряє й активує підписку.",
-    ].join("\n")
+    ].join("\n"),
   );
 });
 
@@ -235,7 +235,7 @@ bot.action(/accept_terms:(\d+)/, async (ctx) => {
     SET terms_accepted_at = datetime('now'),
         terms_version = ?
     WHERE user_id = ?
-  `
+  `,
   ).run(version, userId);
 
   await ctx.answerCbQuery("Дякуємо!");
@@ -253,7 +253,7 @@ const toLocal = (s) =>
     ? formatInTimeZone(
         new Date(s.replace(" ", "T") + "Z"),
         TZ,
-        "yyyy-MM-dd HH:mm"
+        "yyyy-MM-dd HH:mm",
       )
     : "—";
 const nowSql = () => new Date().toISOString().slice(0, 19).replace("T", " ");
@@ -308,14 +308,14 @@ const getActiveSession = () =>
 const getOpenVisit = (sessionId, userId) =>
   db
     .prepare(
-      `SELECT * FROM visits WHERE session_id=? AND user_id=? AND exited_at IS NULL`
+      `SELECT * FROM visits WHERE session_id=? AND user_id=? AND exited_at IS NULL`,
     )
     .get(sessionId, userId);
 
 const countParticipants = (sessionId) =>
   db
     .prepare(
-      `SELECT COUNT(*) as c FROM visits WHERE session_id=? AND exited_at IS NULL`
+      `SELECT COUNT(*) as c FROM visits WHERE session_id=? AND exited_at IS NULL`,
     )
     .get(sessionId).c;
 
@@ -324,7 +324,7 @@ const listParticipants = (sessionId) =>
     .prepare(
       `SELECT u.user_id, u.name
        FROM visits v JOIN users u ON u.user_id=v.user_id
-       WHERE v.session_id=? AND v.exited_at IS NULL ORDER BY u.name`
+       WHERE v.session_id=? AND v.exited_at IS NULL ORDER BY u.name`,
     )
     .all(sessionId);
 
@@ -380,7 +380,7 @@ bot.action(/cancel_payment:(.+)/, async (ctx) => {
     SELECT id, status FROM payments
     WHERE user_id = ? AND ref_code = ?
     ORDER BY created_at DESC LIMIT 1
-  `
+  `,
     )
     .get(ctx.from.id, ref);
 
@@ -395,7 +395,7 @@ bot.action(/cancel_payment:(.+)/, async (ctx) => {
 
   // ✅ Сумісно з CHECK-обмеженням
   db.prepare(`UPDATE payments SET status = 'rejected' WHERE id = ?`).run(
-    row.id
+    row.id,
   );
 
   // Прибрати кнопку «Скасувати» з повідомлення заявки
@@ -418,11 +418,11 @@ const setRegState = (id, step, tmp_first = null, tmp_last = null) => {
   const row = getRegState(id);
   if (row) {
     db.prepare(
-      `UPDATE reg_state SET step=?, tmp_first=?, tmp_last=? WHERE user_id=?`
+      `UPDATE reg_state SET step=?, tmp_first=?, tmp_last=? WHERE user_id=?`,
     ).run(step, tmp_first, tmp_last, id);
   } else {
     db.prepare(
-      `INSERT INTO reg_state (user_id, step, tmp_first, tmp_last) VALUES (?,?,?,?)`
+      `INSERT INTO reg_state (user_id, step, tmp_first, tmp_last) VALUES (?,?,?,?)`,
     ).run(id, step, tmp_first, tmp_last);
   }
 };
@@ -443,7 +443,7 @@ const facultyKeyboard = () =>
 function promptFaculty(ctx) {
   return ctx.reply(
     "В якому факультеті Ви навчаєтесь? Оберіть варіант:",
-    facultyKeyboard()
+    facultyKeyboard(),
   );
 }
 
@@ -485,7 +485,7 @@ bot.on("text", (ctx, next) => {
     if (!NAME_RE.test(text))
       return ctx.reply(
         "Ім'я виглядає дивно. Введіть *лише ім'я* (2–30 символів).",
-        { parse_mode: "Markdown" }
+        { parse_mode: "Markdown" },
       );
     setRegState(uid, "LAST_NAME", text, rs.tmp_last);
     return ctx.reply("Тепер введіть ваше *прізвище*.", {
@@ -497,7 +497,7 @@ bot.on("text", (ctx, next) => {
     if (!NAME_RE.test(text))
       return ctx.reply(
         "Прізвище виглядає дивно. Введіть *лише прізвище* (2–30 символів).",
-        { parse_mode: "Markdown" }
+        { parse_mode: "Markdown" },
       );
     setRegState(uid, "ROOM", rs.tmp_first, text);
     return ctx.reply("Номер кімнати (наприклад, *412*).", {
@@ -508,7 +508,7 @@ bot.on("text", (ctx, next) => {
   if (rs.step === "ROOM") {
     if (!ROOM_RE.test(text))
       return ctx.reply(
-        "Вкажіть номер кімнати (1–4 цифри, можна літеру: 412А)."
+        "Вкажіть номер кімнати (1–4 цифри, можна літеру: 412А).",
       );
     const room = text;
     const first = rs.tmp_first;
@@ -520,12 +520,12 @@ bot.on("text", (ctx, next) => {
       db.prepare(
         `UPDATE users
          SET first_name=?, last_name=?, name=?, room=?, username=?, registered=0
-         WHERE user_id=?`
+         WHERE user_id=?`,
       ).run(first, last, `${first} ${last}`, room, username, uid);
     } else {
       db.prepare(
         `INSERT INTO users (user_id, name, room, first_name, last_name, username, registered)
-         VALUES (?,?,?,?,?,?,0)`
+         VALUES (?,?,?,?,?,?,0)`,
       ).run(uid, `${first} ${last}`, room, first, last, username);
     }
     setRegState(uid, "FACULTY");
@@ -590,7 +590,7 @@ bot.start((ctx) => {
     `Ви вже зареєстровані.\nІм'я: ${full}\nКімната: ${u.room}${
       u.faculty ? `\nФакультет: ${u.faculty}` : ""
     }`,
-    mainKeyboard(uid, s, inside)
+    mainKeyboard(uid, s, inside),
   );
 });
 
@@ -609,7 +609,7 @@ bot.on("callback_query", async (ctx, next) => {
     }
     db.prepare(`UPDATE users SET faculty=?, registered=1 WHERE user_id=?`).run(
       faculty,
-      uid
+      uid,
     );
     clearRegState(uid);
 
@@ -619,11 +619,11 @@ bot.on("callback_query", async (ctx, next) => {
     const full = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name;
 
     await ctx.editMessageText(
-      `Дякуємо! Реєстрацію завершено.\nІм'я: ${full}\nКімната: ${u.room}\nФакультет: ${faculty}`
+      `Дякуємо! Реєстрацію завершено.\nІм'я: ${full}\nКімната: ${u.room}\nФакультет: ${faculty}`,
     );
     await ctx.reply(
       "Можете користуватися кнопками нижче.",
-      mainKeyboard(uid, s, inside)
+      mainKeyboard(uid, s, inside),
     );
     await ctx.answerCbQuery("Збережено.");
     return;
@@ -647,7 +647,7 @@ bot.hears("Мій абонемент", async (ctx) => {
   if (cur) {
     text += `Статус абонемента: *активний*\n`;
     text += `Поточний план: ${planName(cur.plan)}\n${planDescription(
-      cur.plan
+      cur.plan,
     )}\n`;
     text += `Період: ${toLocal(cur.start_at)} → ${toLocal(cur.end_at)}\n`;
   } else {
@@ -732,7 +732,7 @@ bot.on("callback_query", async (ctx, next) => {
     rows.push([
       Markup.button.callback(
         `${m} міс. — ${total}₴${pct ? ` (-${pct}%)` : ""}`,
-        `pay:months:${plan}:${m}`
+        `pay:months:${plan}:${m}`,
       ),
     ]);
   }
@@ -740,7 +740,7 @@ bot.on("callback_query", async (ctx, next) => {
   await sendOrEdit(
     ctx,
     "Оберіть тривалість абонемента (1–9 місяців). Знижка застосовується до всього чеку.",
-    Markup.inlineKeyboard(rows)
+    Markup.inlineKeyboard(rows),
   );
   await ctx.answerCbQuery().catch(() => {});
 });
@@ -774,7 +774,7 @@ bot.on("callback_query", async (ctx, next) => {
   INSERT INTO payments (
     user_id, plan, amount, amount_uah, ref_code, status, months, discount_percent, created_at
   ) VALUES (?,?,?,?,?, 'pending', ?, ?, datetime('now'))
-`
+`,
     ).run(u.user_id, plan, amount, amountUAH, ref, months, pct);
 
     // HTML повідомлення з акцентами
@@ -806,7 +806,7 @@ bot.on("callback_query", async (ctx, next) => {
       [Markup.button.callback("❌ Скасувати заявку", `cancel_payment:${ref}`)],
     ]);
 
-    // ... after forming messageHtml and kb
+    // ... после формирования messageHtml и kb
     await sendOrEdit(ctx, messageHtml, {
       parse_mode: "HTML",
       disable_web_page_preview: true,
@@ -817,8 +817,8 @@ bot.on("callback_query", async (ctx, next) => {
 
     notifySupers(
       `🆕 Нова заявка: ${u.name} (id:${u.user_id}) — ${planName(
-        plan
-      )}, ${months} міс., -${pct}%, сума ${amountUAH}₴, ref=${ref}`
+        plan,
+      )}, ${months} міс., -${pct}%, сума ${amountUAH}₴, ref=${ref}`,
     );
 
     await ctx.answerCbQuery("Заявка створена.").catch(() => {});
@@ -839,13 +839,13 @@ bot.on(["photo", "document"], async (ctx) => {
     WHERE user_id = ? AND status IN ('pending','review')
     ORDER BY created_at DESC
     LIMIT 1
-  `
+  `,
     )
     .get(uid);
 
   if (!p) {
     return ctx.reply(
-      "У вас немає активної заявки на оплату. Натисніть «Оплатити» і створіть нову."
+      "У вас немає активної заявки на оплату. Натисніть «Оплатити» і створіть нову.",
     );
   }
 
@@ -867,7 +867,7 @@ bot.on(["photo", "document"], async (ctx) => {
     SET proof_file_id = ?,
         status = CASE WHEN status='pending' THEN 'review' ELSE status END
     WHERE id = ?
-  `
+  `,
   ).run(fileId, p.id);
 
   await ctx.reply("✅ Чек отримано. Заявка передана на перевірку.");
@@ -877,7 +877,7 @@ bot.on(["photo", "document"], async (ctx) => {
     notifySupers(
       `🔎 Заявка *review*: ${u.name} (id:${uid}), ${planName(p.plan)}, ref=${
         p.ref_code
-      }`
+      }`,
     );
   } catch {}
 });
@@ -931,7 +931,7 @@ bot.on("callback_query", async (ctx, next) => {
     WHERE u.registered = 1
     GROUP BY u.user_id
     ORDER BY sessions DESC, u.name ASC
-  `
+  `,
       )
       .all();
 
@@ -939,7 +939,7 @@ bot.on("callback_query", async (ctx, next) => {
     const current = Math.min(Math.max(1, page), totalPages);
     const slice = users.slice(
       (current - 1) * USERS_PER_PAGE,
-      current * USERS_PER_PAGE
+      current * USERS_PER_PAGE,
     );
 
     const lines = slice.map((row, idx) => {
@@ -963,11 +963,11 @@ bot.on("callback_query", async (ctx, next) => {
     const navRow = [];
     if (current > 1)
       navRow.push(
-        Markup.button.callback("« Назад", `adm:users:${current - 1}`)
+        Markup.button.callback("« Назад", `adm:users:${current - 1}`),
       );
     if (current < totalPages)
       navRow.push(
-        Markup.button.callback("Вперед »", `adm:users:${current + 1}`)
+        Markup.button.callback("Вперед »", `adm:users:${current + 1}`),
       );
 
     const extra = navRow.length
@@ -1009,7 +1009,7 @@ bot.on("callback_query", async (ctx, next) => {
     const dates = db
       .prepare(
         `SELECT DISTINCT substr(started_at,1,10) AS d
-         FROM sessions ORDER BY d DESC LIMIT 28`
+         FROM sessions ORDER BY d DESC LIMIT 28`,
       )
       .all();
 
@@ -1025,34 +1025,8 @@ bot.on("callback_query", async (ctx, next) => {
     return;
   }
 
-  // --- Очистити історію (Запит підтвердження) ---
+  // --- Очистити історію ---
   if (data === "adm:clear") {
-    const u = getUser(ctx.from.id);
-    if (!u || !isAdmin(u.user_id)) {
-      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
-      return;
-    }
-
-    // Запитуємо підтвердження
-    const kb = Markup.inlineKeyboard([
-      [Markup.button.callback("Так, очистити", "adm:clear:confirm")],
-      [Markup.button.callback("Ні, скасувати", "adm:clear:cancel")],
-    ]);
-
-    await sendOrEdit(
-      ctx,
-      "⚠️ **Ви впевнені?**\n\nВи збираєтесь *повністю* очистити всю історію сесій та відвідувань.\n\nЦя дія незворотня.",
-      {
-        parse_mode: "Markdown",
-        reply_markup: kb.reply_markup,
-      }
-    );
-    await ctx.answerCbQuery().catch(() => {}); // Просто закрити спінер
-    return;
-  }
-
-  // --- Очистити історію (Підтверджено) ---
-  if (data === "adm:clear:confirm") {
     const u = getUser(ctx.from.id);
     if (!u || !isAdmin(u.user_id)) {
       await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
@@ -1065,22 +1039,10 @@ bot.on("callback_query", async (ctx, next) => {
         db.prepare(`DELETE FROM sessions`).run();
       });
       clearTx();
-      await sendOrEdit(ctx, "✅ Історію зала очищено (користувачі збережені).");
+      await sendOrEdit(ctx, "Історію зала очищено (користувачі збережені).");
     } catch (e) {
       await ctx.answerCbQuery(`Помилка: ${e.message}`, { show_alert: true });
     }
-    return;
-  }
-
-  // --- Очистити історію (Скасовано) ---
-  if (data === "adm:clear:cancel") {
-    const u = getUser(ctx.from.id);
-    if (!u || !isAdmin(u.user_id)) {
-      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
-      return;
-    }
-    await sendOrEdit(ctx, "Дію скасовано. Історія не була очищена.");
-    await ctx.answerCbQuery().catch(() => {});
     return;
   }
 
@@ -1103,7 +1065,7 @@ bot.on("callback_query", async (ctx, next) => {
         `SELECT s.id, s.started_at, s.ended_at, s.captain_id
          FROM sessions s
          WHERE s.started_at BETWEEN ? AND ?
-         ORDER BY s.started_at ASC`
+         ORDER BY s.started_at ASC`,
       )
       .all(fromSql, toSqlEnd);
 
@@ -1119,7 +1081,7 @@ bot.on("callback_query", async (ctx, next) => {
         .prepare(
           `SELECT u.name, u.room, v.entered_at, v.exited_at
            FROM visits v JOIN users u ON u.user_id=v.user_id
-           WHERE v.session_id=? ORDER BY v.entered_at`
+           WHERE v.session_id=? ORDER BY v.entered_at`,
         )
         .all(s.id);
 
@@ -1127,7 +1089,7 @@ bot.on("callback_query", async (ctx, next) => {
         .prepare(
           `SELECT old_captain_id, new_captain_id, changed_at
            FROM captain_changes
-           WHERE session_id=? ORDER BY changed_at`
+           WHERE session_id=? ORDER BY changed_at`,
         )
         .all(s.id);
 
@@ -1145,8 +1107,8 @@ bot.on("callback_query", async (ctx, next) => {
           .map(
             (c) =>
               `  ↪ ${toLocal(c.changed_at)}: ${getNameById(
-                c.old_captain_id
-              )} → ${getNameById(c.new_captain_id)}`
+                c.old_captain_id,
+              )} → ${getNameById(c.new_captain_id)}`,
           )
           .join("\n") || "  — передач не було —";
 
@@ -1155,8 +1117,8 @@ bot.on("callback_query", async (ctx, next) => {
             .map(
               (p) =>
                 `• ${p.name} (к.${p.room}) — ${toLocal(
-                  p.entered_at
-                )} → ${toLocal(p.exited_at)}`
+                  p.entered_at,
+                )} → ${toLocal(p.exited_at)}`,
             )
             .join("\n")
         : "— нікого —";
@@ -1188,13 +1150,13 @@ bot.on("callback_query", async (ctx, next) => {
       nav.push(Markup.button.callback("« Назад", `hist:${day}:${current - 1}`));
     if (current < totalPages)
       nav.push(
-        Markup.button.callback("Вперед »", `hist:${day}:${current + 1}`)
+        Markup.button.callback("Вперед »", `hist:${day}:${current + 1}`),
       );
 
     await sendOrEdit(
       ctx,
       text,
-      nav.length ? Markup.inlineKeyboard([nav]) : undefined
+      nav.length ? Markup.inlineKeyboard([nav]) : undefined,
     );
     await ctx.answerCbQuery().catch(() => {});
     return;
@@ -1215,85 +1177,84 @@ function notifySupers(text) {
 }
 
 // Стан очікування тексту для відхилення з причиною / ручної видачі / блокування
-const saRejectState = new Map(); // admin_id -> { pid, page }
+const saRejectState = new Map(); // admin_id -> payment_id
 const saGrantState = new Map(); // admin_id -> { stage: 'askUser'|'choosePlan'|'done', targetId? }
 const saBlockState = new Map(); // admin_id -> asking user id
-
-/* ===== Рендеринг черги оплат (для адмінів) ===== */
-async function renderPaymentQueue(ctx, page = 1) {
-  const admin = getUser(ctx.from.id);
-  if (!admin || !isAdmin(admin.user_id) || !isSuperAdmin(admin.user_id)) {
-    await ctx.answerCbQuery("Лише для суперадміністраторів.", {
-      show_alert: true,
-    });
-    return;
-  }
-
-  const items = db
-    .prepare(
-      `SELECT * FROM payments
-       WHERE status IN ('review','pending')
-       ORDER BY CASE status WHEN 'review' THEN 0 ELSE 1 END, created_at ASC`
-    )
-    .all();
-
-  if (!items.length) {
-    await sendOrEdit(ctx, "Черга порожня.");
-    return;
-  }
-
-  const total = items.length;
-  // Важливо: перераховуємо 'current' на випадок, якщо сторінка стала недоступною
-  const current = Math.min(Math.max(1, page), total);
-  const p = items[current - 1];
-
-  const u = getUser(p.user_id);
-
-  const months = p.months || 1;
-  const disc = p.discount_percent || 0;
-  const amountDisplay =
-    p.amount_uah != null
-      ? `${p.amount_uah} грн`
-      : `${Math.round(p.amount / 100)} грн`;
-
-  const text =
-    `Заявка ${current}/${total}\n` +
-    `Користувач: ${u?.name || p.user_id} (id:${p.user_id})\n` +
-    `План: ${planName(p.plan)}\n${planDescription(p.plan)}\n` +
-    `Тривалість: ${months} міс.${disc ? ` (знижка ${disc}%)` : ""}\n` +
-    `Сума: ${amountDisplay}\n` +
-    `Статус: ${p.status}\n` +
-    `ref: ${p.ref_code}\n` +
-    `Створено: ${toLocal(p.created_at)}`;
-
-  const row1 = [];
-  // Логіка кнопок пагінації (перехід на `current`, а не `page`)
-  row1.push(
-    Markup.button.callback("« Назад", `sa:q:${Math.max(1, current - 1)}`)
-  );
-  row1.push(
-    Markup.button.callback("Вперед »", `sa:q:${Math.min(total, current + 1)}`)
-  );
-
-  const row2 = [];
-  row2.push(Markup.button.callback("Показати чек", `sa:proof:${p.id}`));
-  // Передаємо 'current' сторінку, щоб знати, куди повернутись
-  row2.push(
-    Markup.button.callback("Підтвердити", `sa:appr:${p.id}:${current}`)
-  );
-  row2.push(Markup.button.callback("Відхилити", `sa:rej:${p.id}:${current}`));
-
-  await sendOrEdit(ctx, text, Markup.inlineKeyboard([row1, row2]));
-  await ctx.answerCbQuery().catch(() => {});
-}
 
 bot.on("callback_query", async (ctx, next) => {
   const data = ctx.callbackQuery.data || "";
 
   // --- Черга оплат (список) ---
   if (data.startsWith("sa:q:")) {
+    const admin = getUser(ctx.from.id);
+    if (!admin || !isAdmin(admin.user_id)) {
+      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
+      return;
+    }
+    if (!isSuperAdmin(admin.user_id)) {
+      await ctx.answerCbQuery("Лише для суперадміністраторів.", {
+        show_alert: true,
+      });
+      return;
+    }
+
     const page = Math.max(1, parseInt(data.split(":")[2] || "1", 10));
-    return renderPaymentQueue(ctx, page);
+    // спершу review, потім pending
+    const items = db
+      .prepare(
+        `SELECT * FROM payments
+         WHERE status IN ('review','pending')
+         ORDER BY CASE status WHEN 'review' THEN 0 ELSE 1 END, created_at ASC`,
+      )
+      .all();
+
+    if (!items.length) {
+      await sendOrEdit(ctx, "Черга порожня.");
+      return;
+    }
+
+    const total = items.length;
+    const current = Math.min(page, total);
+    const p = items[current - 1];
+
+    const u = getUser(p.user_id);
+
+    const months = p.months || 1;
+    const disc = p.discount_percent || 0;
+    const amountDisplay =
+      p.amount_uah != null
+        ? `${p.amount_uah} грн`
+        : `${Math.round(p.amount / 100)} грн`;
+
+    const text =
+      `Заявка ${current}/${total}\n` +
+      `Користувач: ${u?.name || p.user_id} (id:${p.user_id})\n` +
+      `План: ${planName(p.plan)}\n${planDescription(p.plan)}\n` +
+      `Тривалість: ${months} міс.${disc ? ` (знижка ${disc}%)` : ""}\n` +
+      `Сума: ${amountDisplay}\n` +
+      `Статус: ${p.status}\n` +
+      `ref: ${p.ref_code}\n` +
+      `Створено: ${toLocal(p.created_at)}`;
+
+    const row1 = [];
+    row1.push(
+      Markup.button.callback("« Назад", `sa:q:${Math.max(1, current - 1)}`),
+    );
+    row1.push(
+      Markup.button.callback(
+        "Вперед »",
+        `sa:q:${Math.min(total, current + 1)}`,
+      ),
+    );
+
+    const row2 = [];
+    row2.push(Markup.button.callback("Показати чек", `sa:proof:${p.id}`));
+    row2.push(Markup.button.callback("Підтвердити", `sa:appr:${p.id}`));
+    row2.push(Markup.button.callback("Відхилити", `sa:rej:${p.id}`));
+
+    await sendOrEdit(ctx, text, Markup.inlineKeyboard([row1, row2]));
+    await ctx.answerCbQuery().catch(() => {});
+    return;
   }
 
   // --- Показати чек ---
@@ -1334,48 +1295,54 @@ bot.on("callback_query", async (ctx, next) => {
 
   // --- Підтвердити оплату ---
   if (data.startsWith("sa:appr:")) {
-    // Формат: sa:appr:<pid>:<page>
-    const parts = data.split(":");
-    const pid = Number(parts[2]);
-    const returnPage = Math.max(1, parseInt(parts[3] || "1", 10));
-
+    const pid = Number(data.split(":")[2]);
     const p = db.prepare(`SELECT * FROM payments WHERE id=?`).get(pid);
 
     if (!p) {
       await ctx.answerCbQuery("Заявку не знайдено.");
-      return renderPaymentQueue(ctx, returnPage); // Оновити, навіть якщо помилка
+      return;
     }
     if (!["pending", "review"].includes(p.status)) {
       await ctx.answerCbQuery("Непридатна заявка.");
-      return renderPaymentQueue(ctx, returnPage); // Оновити, бо її вже обробили
+      return;
     }
 
     const months = Math.max(1, p.months || 1);
+
+    // останній період користувача
     const last = getLastSubscription(p.user_id);
     const lastEndMs = last
       ? Date.parse(last.end_at.replace(" ", "T") + "Z")
       : 0;
+
+    // новий період: або зразу, або з кінця попереднього
     const startDate = new Date(Math.max(Date.now(), lastEndMs + 1000));
     const endDate = new Date(startDate.getTime());
     endDate.setMonth(endDate.getMonth() + months);
+
     const startSql = sqlFromDate(startDate);
     const endSql = sqlFromDate(endDate);
     const adminId = ctx.from.id;
 
     const tx = db.transaction(() => {
+      // 1) оновлюємо статус платежу
       db.prepare(
-        `UPDATE payments SET status='approved', approved_at=datetime('now') WHERE id=?`
+        `UPDATE payments SET status='approved', approved_at=datetime('now') WHERE id=?`,
       ).run(pid);
+
+      // 2) додаємо підписку-період (ЄДИНИЙ джерело істини)
       addSubscription(p.user_id, p.plan, startSql, endSql);
+
+      // 3) лог дії
       db.prepare(
         `INSERT INTO admin_actions (actor_id, action, target_user_id, payment_id, details)
-     VALUES (?,?,?,?,?)`
+     VALUES (?,?,?,?,?)`,
       ).run(
         adminId,
         "approve_payment",
         p.user_id,
         p.id,
-        `plan=${p.plan} months=${months} ${startSql}→${endSql}`
+        `plan=${p.plan} months=${months} ${startSql}→${endSql}`,
       );
     });
 
@@ -1386,7 +1353,7 @@ bot.on("callback_query", async (ctx, next) => {
       await ctx.answerCbQuery("Помилка під час підтвердження.", {
         show_alert: true,
       });
-      return; // Тут не оновлюємо, щоб адмін побачив помилку
+      return;
     }
 
     await ctx.answerCbQuery("Підтверджено.");
@@ -1394,45 +1361,43 @@ bot.on("callback_query", async (ctx, next) => {
       await bot.telegram.sendMessage(
         p.user_id,
         `✅ Оплату підтверджено.\n${planName(p.plan)}\n${planDescription(
-          p.plan
+          p.plan,
         )}\n` +
           `Тривалість: ${months} міс.\nПеріод: ${toLocal(startSql)} → ${toLocal(
-            endSql
-          )}`
+            endSql,
+          )}`,
       );
     } catch {}
-
-    // Повертаємо адміна до черги
-    return renderPaymentQueue(ctx, returnPage);
+    return;
   }
 
   // --- Відхилити оплату (запрос причини) ---
   if (data.startsWith("sa:rej:")) {
     const admin = getUser(ctx.from.id);
-    if (!admin || !isAdmin(admin.user_id) || !isSuperAdmin(admin.user_id)) {
+    if (!admin || !isAdmin(admin.user_id)) {
+      await ctx.answerCbQuery("Лише для адмінів.", { show_alert: true });
+      return;
+    }
+    if (!isSuperAdmin(admin.user_id)) {
       await ctx.answerCbQuery("Лише для суперадміністраторів.", {
         show_alert: true,
       });
       return;
     }
 
-    // Формат: sa:rej:<pid>:<page>
-    const parts = data.split(":");
+    // коректний парсинг id
+    const parts = data.split(":"); // ["sa","rej","<id>"]
     const pid = Number(parts[2]);
-    const returnPage = Math.max(1, parseInt(parts[3] || "1", 10));
 
     const p = db.prepare(`SELECT * FROM payments WHERE id=?`).get(pid);
     if (!p || !["pending", "review"].includes(p.status)) {
       await ctx.answerCbQuery("Непридатна заявка.", { show_alert: true });
-      return renderPaymentQueue(ctx, returnPage); // Оновити чергу
+      return;
     }
-
-    // Зберігаємо і pid, і сторінку, куди повернутись
-    saRejectState.set(admin.user_id, { pid: pid, page: returnPage });
-
+    saRejectState.set(admin.user_id, pid);
     await ctx.answerCbQuery().catch(() => {});
     await ctx.reply(
-      "Введіть причину відхилення як наступне повідомлення (текстом)."
+      "Введіть причину відхилення як наступне повідомлення (текстом).",
     );
     return;
   }
@@ -1464,7 +1429,7 @@ bot.on("callback_query", async (ctx, next) => {
     JOIN users u ON u.user_id = s.user_id
     WHERE s.start_at <= datetime('now') AND s.end_at >= datetime('now')
     ORDER BY s.end_at DESC, u.name ASC
-  `
+  `,
       )
       .all();
 
@@ -1478,7 +1443,7 @@ bot.on("callback_query", async (ctx, next) => {
     const current = Math.min(page, totalPages);
     const slice = rows.slice(
       (current - 1) * SUBS_PER_PAGE,
-      current * SUBS_PER_PAGE
+      current * SUBS_PER_PAGE,
     );
 
     const lines = slice.map((r, idx) => {
@@ -1486,7 +1451,7 @@ bot.on("callback_query", async (ctx, next) => {
       return `${(current - 1) * SUBS_PER_PAGE + idx + 1}. ${r.name}${nick} (к.${
         r.room
       }${r.faculty ? `, ${r.faculty}` : ""}) — ${planName(r.plan)} до ${toLocal(
-        r.end_at
+        r.end_at,
       )}`;
     });
 
@@ -1507,7 +1472,7 @@ bot.on("callback_query", async (ctx, next) => {
     await sendOrEdit(
       ctx,
       text,
-      nav.length ? Markup.inlineKeyboard([nav]) : undefined
+      nav.length ? Markup.inlineKeyboard([nav]) : undefined,
     );
     await ctx.answerCbQuery().catch(() => {});
     return;
@@ -1548,7 +1513,7 @@ bot.on("callback_query", async (ctx, next) => {
     saBlockState.set(admin.user_id, true);
     await ctx.answerCbQuery().catch(() => {});
     await ctx.reply(
-      "Введіть user_id користувача (числом) для блокування/розблокування."
+      "Введіть user_id користувача (числом) для блокування/розблокування.",
     );
     return;
   }
@@ -1589,7 +1554,7 @@ bot.on("callback_query", async (ctx, next) => {
       rows.push([
         Markup.button.callback(
           `${m} міс.`,
-          `sa:grantm:${targetId}:${plan}:${m}`
+          `sa:grantm:${targetId}:${plan}:${m}`,
         ),
       ]);
     }
@@ -1600,7 +1565,7 @@ bot.on("callback_query", async (ctx, next) => {
       }).\n` +
         `План: ${planName(plan)}\n${planDescription(plan)}\n` +
         `Оберіть тривалість:`,
-      Markup.inlineKeyboard(rows)
+      Markup.inlineKeyboard(rows),
     );
     await ctx.answerCbQuery().catch(() => {});
     return;
@@ -1651,12 +1616,12 @@ bot.on("callback_query", async (ctx, next) => {
       // 2) аудит дії
       db.prepare(
         `INSERT INTO admin_actions (actor_id, action, target_user_id, details)
-     VALUES (?,?,?,?)`
+     VALUES (?,?,?,?)`,
       ).run(
         admin.user_id,
         "grant_manual",
         targetId,
-        `plan=${plan} months=${months} ${startSql}→${endSql}`
+        `plan=${plan} months=${months} ${startSql}→${endSql}`,
       );
     });
 
@@ -1674,21 +1639,21 @@ bot.on("callback_query", async (ctx, next) => {
     await sendOrEdit(
       ctx,
       `✅ Надано/продовжено доступ вручну.\n${planName(
-        plan
+        plan,
       )}\n${planDescription(plan)}\n` +
         `Тривалість: ${months} міс.\nПеріод: ${toLocal(startSql)} → ${toLocal(
-          endSql
-        )}`
+          endSql,
+        )}`,
     );
     try {
       await bot.telegram.sendMessage(
         targetId,
         `✅ Вам надано/продовжено доступ вручну.\n${planName(
-          plan
+          plan,
         )}\n${planDescription(plan)}\n` +
           `Тривалість: ${months} міс.\нПеріод: ${toLocal(startSql)} → ${toLocal(
-            endSql
-          )}`
+            endSql,
+          )}`,
       );
     } catch {}
     return;
@@ -1718,7 +1683,7 @@ bot.on("callback_query", async (ctx, next) => {
       LEFT JOIN users ua ON ua.user_id = a.actor_id
       LEFT JOIN users ut ON ut.user_id = a.target_user_id
       ORDER BY a.id DESC
-    `
+    `,
       )
       .all();
 
@@ -1732,7 +1697,7 @@ bot.on("callback_query", async (ctx, next) => {
     const current = Math.min(page, totalPages);
     const slice = logs.slice(
       (current - 1) * LOGS_PER_PAGE,
-      current * LOGS_PER_PAGE
+      current * LOGS_PER_PAGE,
     );
 
     const lines = slice.map((r, idx) => {
@@ -1770,7 +1735,7 @@ bot.on("callback_query", async (ctx, next) => {
     await sendOrEdit(
       ctx,
       text,
-      nav.length ? Markup.inlineKeyboard([nav]) : undefined
+      nav.length ? Markup.inlineKeyboard([nav]) : undefined,
     );
     await ctx.answerCbQuery().catch(() => {});
     return;
@@ -1785,15 +1750,12 @@ bot.on("text", async (ctx, next) => {
 
   // причина відхилення
   if (saRejectState.has(adminId)) {
-    const state = saRejectState.get(adminId);
-    const pid = state.pid;
-    const returnPage = state.page;
-    saRejectState.delete(adminId); // Очищуємо стан
+    const pid = saRejectState.get(adminId);
+    saRejectState.delete(adminId);
 
     const p = db.prepare(`SELECT * FROM payments WHERE id=?`).get(pid);
     if (!p || !["pending", "review"].includes(p.status)) {
-      await ctx.reply("Заявку не знайдено або її вже оброблено.");
-      return renderPaymentQueue(ctx, returnPage); // Все одно оновлюємо
+      return ctx.reply("Заявку не знайдено або її вже оброблено.");
     }
 
     const reason = (ctx.message.text || "Без коментаря").slice(0, 500);
@@ -1801,11 +1763,11 @@ bot.on("text", async (ctx, next) => {
 
     const tx = db.transaction(() => {
       db.prepare(
-        `UPDATE payments SET status='rejected', rejected_at=datetime('now'), comment=? WHERE id=?`
+        `UPDATE payments SET status='rejected', rejected_at=datetime('now'), comment=? WHERE id=?`,
       ).run(reason, pid);
       db.prepare(
         `INSERT INTO admin_actions (actor_id, action, target_user_id, payment_id, details)
-         VALUES (?,?,?,?,?)`
+         VALUES (?,?,?,?,?)`,
       ).run(admin.user_id, "reject_payment", p.user_id, p.id, reason);
     });
     tx();
@@ -1813,14 +1775,11 @@ bot.on("text", async (ctx, next) => {
     try {
       await bot.telegram.sendMessage(
         p.user_id,
-        `❌ Оплату відхилено: ${reason}`
+        `❌ Оплату відхилено: ${reason}`,
       );
     } catch {}
 
-    await ctx.reply("Відхилено. Користувача повідомлено.");
-
-    // Повертаємо адміна до черги
-    return renderPaymentQueue(ctx, returnPage);
+    return ctx.reply("Відхилено. Користувача повідомлено.");
   }
 
   // ручне надання/продовження (ввід user_id)
@@ -1850,7 +1809,7 @@ bot.on("text", async (ctx, next) => {
         `Користувач: ${user.name} (к.${user.room}${
           user.faculty ? `, ${user.faculty}` : ""
         }). Оберіть план:`,
-        Markup.inlineKeyboard(rows)
+        Markup.inlineKeyboard(rows),
       );
     }
   }
@@ -1868,12 +1827,12 @@ bot.on("text", async (ctx, next) => {
     const newBlocked = user.blocked ? 0 : 1;
     db.prepare(`UPDATE users SET blocked=? WHERE user_id=?`).run(
       newBlocked,
-      target
+      target,
     );
 
     db.prepare(
       `INSERT INTO admin_actions (actor_id, action, target_user_id, details)
-       VALUES (?,?,?,?)`
+       VALUES (?,?,?,?)`,
     ).run(adminId, newBlocked ? "block_user" : "unblock_user", target, "");
 
     try {
@@ -1881,12 +1840,12 @@ bot.on("text", async (ctx, next) => {
         target,
         newBlocked
           ? "⛔ Ваш доступ заблоковано адміністраторами."
-          : "✅ Ваш доступ розблоковано адміністраторами."
+          : "✅ Ваш доступ розблоковано адміністраторами.",
       );
     } catch {}
 
     return ctx.reply(
-      newBlocked ? "Користувача заблоковано." : "Користувача розблоковано."
+      newBlocked ? "Користувача заблоковано." : "Користувача розблоковано.",
     );
   }
 
@@ -1907,7 +1866,7 @@ function requirePaidGate(u, ctx) {
   const curSub = getCurrentSubscription(u.user_id);
   if (!curSub) {
     ctx.reply(
-      "У вас немає активного абонемента. Спочатку натисніть «Оплатити»."
+      "У вас немає активного абонемента. Спочатку натисніть «Оплатити».",
     );
     return false;
   }
@@ -1915,8 +1874,8 @@ function requirePaidGate(u, ctx) {
   if (!isAllowedToday(activePlan)) {
     ctx.reply(
       `За вашим планом відвідування доступне у дні: ${daysTextForPlan(
-        activePlan
-      )}.`
+        activePlan,
+      )}.`,
     );
     return false;
   }
@@ -1932,14 +1891,14 @@ bot.hears("Статус", async (ctx) => {
   if (!s)
     return ctx.reply(
       "Зараз немає активної сесії.",
-      mainKeyboard(u.user_id, null, false)
+      mainKeyboard(u.user_id, null, false),
     );
 
   const part = listParticipants(s.id);
   const captainName = getNameById(s.captain_id);
   await ctx.reply(
     `Активна сесія\nКапітан: ${captainName}\nВсередині: ${part.length}`,
-    mainKeyboard(u.user_id, s, !!getOpenVisit(s.id, u.user_id))
+    mainKeyboard(u.user_id, s, !!getOpenVisit(s.id, u.user_id)),
   );
 });
 
@@ -1954,7 +1913,7 @@ bot.hears("👮 Встати на вахту", (ctx) => {
   const inside = s ? !!getOpenVisit(s.id, uid) : false;
   ctx.reply(
     "✅ Ви стали на вахту. Будете отримувати сповіщення про старт/завершення сесій.",
-    mainKeyboard(uid, s, inside)
+    mainKeyboard(uid, s, inside),
   );
 });
 
@@ -1968,7 +1927,7 @@ bot.hears("❌ Вийти з вахти", (ctx) => {
   const inside = s ? !!getOpenVisit(s.id, uid) : false;
   ctx.reply(
     "👋 Ви вийшли з вахти. Сповіщення більше не надходитимуть.",
-    mainKeyboard(uid, s, inside)
+    mainKeyboard(uid, s, inside),
   );
 });
 
@@ -1986,7 +1945,7 @@ bot.hears("Почати сесію", async (ctx) => {
         hour: "2-digit",
         hour12: false,
         timeZone: TZ, // TZ уже определён как 'Europe/Kyiv'
-      }).format(now)
+      }).format(now),
     );
 
     if (hourKyiv >= 23 || hourKyiv < 6) {
@@ -2002,7 +1961,7 @@ bot.hears("Почати сесію", async (ctx) => {
     const inside = !!getOpenVisit(existing.id, u.user_id);
     return ctx.reply(
       "Сесія вже активна.",
-      mainKeyboard(u.user_id, existing, inside)
+      mainKeyboard(u.user_id, existing, inside),
     );
   }
 
@@ -2015,19 +1974,19 @@ bot.hears("Почати сесію", async (ctx) => {
 
       db.prepare(
         `INSERT INTO sessions (captain_id, started_at, active)
-VALUES (?, datetime('now'), 1)`
+VALUES (?, datetime('now'), 1)`,
       ).run(user_id);
 
       const rowid = db.prepare(`SELECT last_insert_rowid() AS id`).get().id;
 
       db.prepare(
         `INSERT INTO visits (session_id, user_id, entered_at)
-VALUES (?, ?, datetime('now'))`
+VALUES (?, ?, datetime('now'))`,
       ).run(rowid, user_id);
 
       db.prepare(
         `INSERT INTO captain_changes (session_id, old_captain_id, new_captain_id, changed_at)
-VALUES (?, ?, ?, datetime('now'))`
+VALUES (?, ?, ?, datetime('now'))`,
       ).run(rowid, null, user_id);
 
       const s = db.prepare(`SELECT * FROM sessions WHERE id=?`).get(rowid);
@@ -2041,7 +2000,7 @@ VALUES (?, ?, ?, datetime('now'))`
       const inside = s ? !!getOpenVisit(s.id, u.user_id) : false;
       return ctx.reply(
         "Сесію вже хтось розпочав щойно.",
-        mainKeyboard(u.user_id, s, inside)
+        mainKeyboard(u.user_id, s, inside),
       );
     }
     console.error("start_session error:", e);
@@ -2049,7 +2008,7 @@ VALUES (?, ?, ?, datetime('now'))`
     const inside = s ? !!getOpenVisit(s.id, u.user_id) : false;
     return ctx.reply(
       "Не вдалося почати сесію. Повторіть, будь ласка.",
-      mainKeyboard(u.user_id, s, inside)
+      mainKeyboard(u.user_id, s, inside),
     );
   }
 
@@ -2061,7 +2020,7 @@ VALUES (?, ?, ?, datetime('now'))`
         "🔓 <b>Сесію розпочато</b>",
         `Капітан: ${esc(u.name)} (к.${esc(u.room || "—")})`,
         `Час: ${toLocal(startedAt)}`,
-      ].join("\n")
+      ].join("\n"),
     );
   } catch (e) {
     console.error("notifyWatchers start error:", e?.message || e);
@@ -2074,7 +2033,7 @@ VALUES (?, ?, ?, datetime('now'))`
   // Ключове повідомлення користувачу
   return ctx.reply(
     "Сесію розпочато. Ви — капітан.",
-    mainKeyboard(u.user_id, newSession, true)
+    mainKeyboard(u.user_id, newSession, true),
   );
 });
 
@@ -2099,7 +2058,7 @@ bot.hears("Увійти", async (ctx) => {
   try {
     db.prepare(
       `INSERT INTO visits (session_id, user_id, entered_at)
-   VALUES (?, ?, datetime('now'))`
+   VALUES (?, ?, datetime('now'))`,
     ).run(s.id, u.user_id);
   } catch (e) {
     console.error("Enter error:", e.message);
@@ -2111,7 +2070,7 @@ bot.hears("Увійти", async (ctx) => {
   await notifyCaptain(
     s,
     `🟢 ${u.name} увійшов(ла). Зараз у залі: ${cntAfter}.`,
-    u.user_id
+    u.user_id,
   );
   return ctx.reply("Позначено: увійшли.", mainKeyboard(u.user_id, s, true));
 });
@@ -2141,7 +2100,7 @@ bot.hears("Вийти", async (ctx) => {
         `⚠️ Ви — капітан. Всередині ще ${
           count - 1
         } люд(ей). Спочатку *передайте капітана*.`,
-        { parse_mode: "Markdown", ...ik }
+        { parse_mode: "Markdown", ...ik },
       );
     }
     db.prepare(
@@ -2152,10 +2111,10 @@ bot.hears("Вийти", async (ctx) => {
      WHERE session_id=? AND user_id=? AND exited_at IS NULL
      ORDER BY entered_at DESC
      LIMIT 1
-   )`
+   )`,
     ).run(s.id, u.user_id);
     db.prepare(
-      `UPDATE sessions SET ended_at=datetime('now'), active=0 WHERE id=?`
+      `UPDATE sessions SET ended_at=datetime('now'), active=0 WHERE id=?`,
     ).run(s.id);
     // [WATCHERS] завершение сессии
     // Нотифікації/оновлення — вже після створення, поза транзакцією
@@ -2168,7 +2127,7 @@ bot.hears("Вийти", async (ctx) => {
           `Капітан: ${esc(u.name)} (к.${esc(u.room || "—")})`,
           `Початок: ${toLocal(s.started_at)}`,
           `Кінець: ${toLocal(endedAt)}`,
-        ].join("\n")
+        ].join("\n"),
       );
     } catch (e) {
       console.error("notifyWatchers end error:", e?.message || e);
@@ -2176,7 +2135,7 @@ bot.hears("Вийти", async (ctx) => {
 
     return ctx.reply(
       "Сесію завершено. Двері зачинено.",
-      mainKeyboard(u.user_id, null, false)
+      mainKeyboard(u.user_id, null, false),
     );
   }
 
@@ -2188,14 +2147,14 @@ bot.hears("Вийти", async (ctx) => {
      WHERE session_id=? AND user_id=? AND exited_at IS NULL
      ORDER BY entered_at DESC
      LIMIT 1
-   )`
+   )`,
   ).run(s.id, u.user_id);
   if (GROUP_CHAT_ID) await updateStatusPost(bot, GROUP_CHAT_ID).catch(() => {});
   const cntAfter = countParticipants(s.id);
   await notifyCaptain(
     s,
     `🔴 ${u.name} вийшов(ла). Залишилось: ${cntAfter}.`,
-    u.user_id
+    u.user_id,
   );
 
   return ctx.reply("Позначено: вийшли.", mainKeyboard(u.user_id, s, false));
@@ -2212,14 +2171,14 @@ async function handleTransfer(ctx) {
   if (s.captain_id !== u.user_id)
     return ctx.reply(
       "Лише капітан може це зробити.",
-      mainKeyboard(u.user_id, s, true)
+      mainKeyboard(u.user_id, s, true),
     );
 
   const people = listParticipants(s.id).filter((p) => p.user_id !== u.user_id);
   if (!people.length)
     return ctx.reply(
       "Нікому передати капітана — ви один у залі.",
-      mainKeyboard(u.user_id, s, true)
+      mainKeyboard(u.user_id, s, true),
     );
 
   const buttons = people.map((p) => [
@@ -2236,7 +2195,7 @@ bot.on("callback_query", async (ctx, next) => {
   if (data === "cap:alert") {
     await ctx.answerCbQuery(
       "Ви — капітан. Поки всередині інші — вийти не можна. Спочатку передайте капітана.",
-      { show_alert: true }
+      { show_alert: true },
     );
     return;
   }
@@ -2259,11 +2218,11 @@ bot.on("callback_query", async (ctx, next) => {
 
     db.prepare(
       `INSERT INTO captain_changes (session_id, old_captain_id, new_captain_id)
-       VALUES (?,?,?)`
+       VALUES (?,?,?)`,
     ).run(s.id, s.captain_id, targetId);
     db.prepare(`UPDATE sessions SET captain_id=? WHERE id=?`).run(
       targetId,
-      s.id
+      s.id,
     );
 
     // ЛС новому капітану
@@ -2276,7 +2235,7 @@ bot.on("callback_query", async (ctx, next) => {
         `👑 Вам передали капітанство.\nЗараз всередині: ${
           cnt - 1
         } інших(а).\nНе забудьте передати капітана перед виходом.`,
-        mainKeyboard(targetId, updated, inside)
+        mainKeyboard(targetId, updated, inside),
       );
     } catch {}
 
